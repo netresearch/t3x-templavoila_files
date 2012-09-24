@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<T3locallang>
+	<meta type="array">
+		<description>Main</description>
+		<type>module</type>
+		<csh_table></csh_table>
+		<fileId>EXT:templavoila_files/locallang.xml</fileId>
+		<labelContext type="array">
+		</labelContext>
+	</meta>
+	<data type="array">
+		<languageKey index="default" type="array">
+			<label index="mapping.extKey">Key of extension to which to export the mapping</label>
+			<label index="mapping.pathMask">Mask of the path inside the extension (Available placeholders: ${scope} and ${title})</label>
+		</languageKey>
+	</data>
+</T3locallang>
