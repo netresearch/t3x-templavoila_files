@@ -6,7 +6,7 @@
  * @package t3build
  * @author Christian Opitz <co@netzelf.de>
  */
-class tx_templavoilafiles_provider_tvstaticds extends tx_t3build_provider_abstract
+class tx_templavoilafiles_provider_tvfds extends tx_t3build_provider_abstract
 {
     /**
      * The extension to which the files should be written
