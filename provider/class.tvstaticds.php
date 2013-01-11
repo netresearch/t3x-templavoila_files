@@ -44,13 +44,6 @@ class tx_templavoilafiles_provider_tvstaticds extends tx_t3build_provider_abstra
     protected $includeDeletedRecords = false;
 
     /**
-     * If the content should be appended to eventually existing files
-     * @arg
-     * @var boolean
-     */
-    protected $append = true;
-
-    /**
      * If existing files should be overwritten
      * @arg
      * @var boolean
@@ -83,19 +76,6 @@ class tx_templavoilafiles_provider_tvstaticds extends tx_t3build_provider_abstra
      * @var t3lib_DB
      */
     protected $db;
-
-    protected $columns = array(
-        'setup' => 'config',
-        'constants' => 'constants'
-    );
-
-    protected $rows = array();
-
-    protected $rootlines = array();
-
-    protected $templateFiles = array();
-
-    protected $staticDirs = array();
 
     protected $updateColumns = array(
         'tx_templavoila_tmplobj' => 'datastructure',
