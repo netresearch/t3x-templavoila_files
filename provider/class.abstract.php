@@ -60,36 +60,36 @@ abstract class tx_templavoilafiles_provider_abstract extends tx_t3build_provider
      * @var t3lib_DB
      */
     protected $db;
-    
+
     protected $extPath;
-    
+
     protected $extRelPath;
-    
+
     protected $extension = 'xml';
-    
+
     public function init($args)
-    {        
+    {
         if (!t3lib_extMgm::isLoaded('templavoila')) {
             $this->_die('templavoila is not loaded');
         }
         $this->db = $GLOBALS['TYPO3_DB'];
-        
+
         preg_match('/_tvf([a-z]+)$/', get_class($this), $match);
         $this->path = str_replace('###TYPE###', $match[1], $this->path);
         $this->path = str_replace('###EXTENSION###', $this->extension, $this->path);
-        
+
         parent::init($args);
-        
+
         $this->extPath = PATH_typo3conf.'ext/'.$this->extKey.'/';
         $this->extRelPath = 'typo3conf/ext/'.$this->extKey.'/';
     }
-    
+
     protected function getRows($table)
     {
         if (!$this->pid && !$this->uid) {
             $this->_die('You need to provide either a pid or an uid');
         }
-        
+
         $parts = array();
         $criteria = array();
         foreach (array('pid', 'uid') as $type) {
@@ -98,28 +98,28 @@ abstract class tx_templavoilafiles_provider_abstract extends tx_t3build_provider
                 $criteria[] = $type.' '.$this->$type;
             }
         }
-        
+
         $where = implode(' AND ', $parts);
         $where .= ($this->includeDeletedRecords ? '' : ' AND '.$table.'.deleted = 0');
-        
+
         $rows = $this->db->exec_SELECTgetRows('*', $table, $where);
 
         if (!count($rows)) {
             $this->_die('No records found for '.implode(' and ', $criteria));
         }
-        
+
         return $rows;
     }
-    
+
     protected function export($rows, $source)
     {
         if (!file_exists($this->extPath)) {
             t3lib_div::mkdir($this->extPath);
         }
-        
+
         $map = array();
         $isCallback = is_callable($source);
-        
+
         foreach ($rows as $row) {
             $file = $this->getPath($this->path, array(
             	'scope' => $row['scope'] === '1' ? 'page' : 'fce',
@@ -131,14 +131,14 @@ abstract class tx_templavoilafiles_provider_abstract extends tx_t3build_provider
                     $this->_die('Could not make directory '.$path);
                 }
             }
-            
+
             if (!file_exists($path) || $this->overwrite) {
                 $content = $isCallback ? call_user_func($source, $row) : $row[$source];
                 file_put_contents($path, $content);
                 $map[$row['uid']] = $file;
-            }            
+            }
         }
-        
+
         return $map;
     }
 }
