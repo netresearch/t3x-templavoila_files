@@ -35,6 +35,11 @@ class tx_templavoilafiles_provider_tvfds extends tx_templavoilafiles_provider_ab
     public function tvfdsAction()
     {
         $rows = $this->getRows('tx_templavoila_datastructure');
+        
+        if (!count($rows)) {
+            $this->_die('No records found for pid '.$this->pid);
+        }
+        
         $map = $this->export($rows, 'dataprot');
         
         foreach ($map as $uid => $file) {

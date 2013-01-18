@@ -11,29 +11,25 @@ abstract class tx_templavoilafiles_provider_abstract extends tx_t3build_provider
     /**
      * Handle only records with this pid
      * @arg
+     * @required
      * @var int
      */
     protected $pid = null;
-
-    /**
-     * Handle only the record with this uid
-     * @arg
-     * @var int
-     */
-    protected $uid = null;
 
     /**
      * The mask of the path within the extension the files will be
      * exported to. Following variables are available:
      * ${scope} fce or page
      * ${title} title of the ds record
+     * ${path}  rootline between pid and record (empty when records
+     *          are directly inside the folder with the specified pid)
      *
      * Add a feature request/patch at forge.typo3.org if you need more
      *
      * @arg
      * @var string
      */
-    protected $path = '###TYPE###/${scope}/${title}.###EXTENSION###';
+    protected $path = '###TYPE###/${path}/${scope}/${title}.###EXTENSION###';
 
     /**
      * Whether to include deleted ds
@@ -50,11 +46,18 @@ abstract class tx_templavoilafiles_provider_abstract extends tx_t3build_provider
     protected $overwrite = false;
 
     /**
-     * Renaming mode: 'camelCase', 'CamelCase' or 'under_scored'
+     * Renaming mode: 'camelCase', 'CamelCase' or 'underscore'
      * @arg
      * @var string
      */
     protected $renameMode = 'camelCase';
+
+    /**
+     * If files should be really touched
+     * @arg
+     * @var boolean
+     */
+    protected $dryRun = false;
 
     /**
      * @var t3lib_DB
@@ -67,6 +70,8 @@ abstract class tx_templavoilafiles_provider_abstract extends tx_t3build_provider
 
     protected $extension = 'xml';
 
+    protected $rootlines = array();
+    
     public function init($args)
     {
         if (!t3lib_extMgm::isLoaded('templavoila')) {
@@ -80,37 +85,44 @@ abstract class tx_templavoilafiles_provider_abstract extends tx_t3build_provider
 
         parent::init($args);
 
+        if ($this->dryRun) {
+            $this->debug = true;
+        }
+        
         $this->extPath = PATH_typo3conf.'ext/'.$this->extKey.'/';
         $this->extRelPath = 'typo3conf/ext/'.$this->extKey.'/';
     }
 
-    protected function getRows($table)
+    protected function getRows($table, $pid = null, array $rootline = array())
     {
-        if (!$this->pid && !$this->uid) {
-            $this->_die('You need to provide either a pid or an uid');
+        if (!$pid) {
+            $pid = $this->pid;
         }
 
-        $parts = array();
-        $criteria = array();
-        foreach (array('pid', 'uid') as $type) {
-            if ($this->$type) {
-                $parts[] = $table.'.'.$type.'='.$this->$type;
-                $criteria[] = $type.' '.$this->$type;
-            }
-        }
+        $where = 'pid = '.$pid;
+        $where .= ($this->includeDeletedRecords ? '' : ' AND deleted = 0');
 
-        $where = implode(' AND ', $parts);
-        $where .= ($this->includeDeletedRecords ? '' : ' AND '.$table.'.deleted = 0');
+        $rows = $this->db->exec_SELECTgetRows('*', $table, $where, '', '', '', 'uid');
+        $pages = $this->db->exec_SELECTgetRows('uid, title', 'pages', $where.' AND doktype=254');
 
-        $rows = $this->db->exec_SELECTgetRows('*', $table, $where);
-
-        if (!count($rows)) {
-            $this->_die('No records found for '.implode(' and ', $criteria));
+        foreach ($pages as $page) {
+            $tempRootline = $rootline;
+            $tempRootline[] = $page['title'];
+            $this->rootlines[$page['uid']] = $tempRootline;
+            $rows = array_merge($rows, $this->getRows($table, $page['uid'], $tempRootline));
         }
 
         return $rows;
     }
 
+    protected function getRootline($pid)
+    {
+        if (!array_key_exists($pid, $this->rootlines)) {
+            return array();
+        }
+        return $this->rootlines[$pid];
+    }
+    
     protected function export($rows, $source)
     {
         if (!file_exists($this->extPath)) {
@@ -121,18 +133,25 @@ abstract class tx_templavoilafiles_provider_abstract extends tx_t3build_provider
         $isCallback = is_callable($source);
 
         foreach ($rows as $row) {
-            $file = $this->getPath($this->path, array(
-            	'scope' => $row['scope'] === '1' ? 'page' : 'fce',
-                'title' => str_replace(array('/', '\\'), '-', $row['title'])
-            ), $this->renameMode);
+            $file = $this->getPath(
+                $this->path,
+                array(
+                	'scope' => $row['scope'] === '1' ? 'page' : 'fce',
+                    'title' => str_replace(array('/', '\\'), '-', $row['title']),
+                    'path' => implode('/', $this->getRootline($row['pid']))
+                ),
+                $this->renameMode
+            );
             $path = $this->extPath.$file;
-            if (!file_exists(dirname($path))) {
+            if (!$this->dryRun && !file_exists(dirname($path))) {
                 if (t3lib_div::mkdir_deep($this->extPath, dirname($file))) {
                     $this->_die('Could not make directory '.$path);
                 }
             }
 
-            if (!file_exists($path) || $this->overwrite) {
+            $this->_debug('Writing record '.$row['uid'].' to '.$path);
+            
+            if (!$this->dryRun && (!file_exists($path) || $this->overwrite)) {
                 $content = $isCallback ? call_user_func($source, $row) : $row[$source];
                 file_put_contents($path, $content);
                 $map[$row['uid']] = $file;
