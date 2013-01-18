@@ -29,9 +29,9 @@ class tx_templavoilafiles_provider_tvfmapping extends tx_templavoilafiles_provid
      * @arg
      * @var string
      */
-    protected $varName = 'templateObject';
+    protected $varName = 'templateInfo';
 
-    public function exportAction()
+    public function syncAction()
     {
         /* @var $dsRepo tx_templavoila_datastructureRepository */
         $dsRepo = t3lib_div::makeInstance('tx_templavoila_datastructureRepository');
@@ -48,18 +48,34 @@ class tx_templavoilafiles_provider_tvfmapping extends tx_templavoilafiles_provid
     protected function renderMapping($row)
     {
         $mapping = unserialize($row['templatemapping']);
+        $scope = $row['scope'];
         foreach ($row as $column => $value) {
             if (substr($column, 0, 6) == 't3ver_') {
                 unset($row[$column]);
             }
         }
-        unset($row['templatemapping'], $row['t3_origuid']);
-        $row['templatemapping'] = $mapping;
+        unset($row['uid'], $row['templatemapping'], $row['t3_origuid'], $row['scope']);
+
+        $user = (array) $this->db->exec_SELECTgetSingleRow('username', 'be_users', 'uid='.$row['cruser_id']);
+
+        $templateInfo = array(
+            'version' => '1.0.0',
+            'meta' => array(
+                'exportTime' => time(),
+                'cruserName' => $user['username'],
+                'scope' => $scope,
+                'host' => $_SERVER['COMPUTERNAME'],
+        		'user' => $_SERVER['USERNAME'],
+                'path' => $this->getRootline($row['pid']),
+            ),
+            'record' => $row,
+            'mapping' => $mapping
+        );
 
         $indention = $this->csSpaces ? str_repeat(' ', $this->csSpaces) : "\t";
         $file = '<?'."php\n";
         $file .= '$'.$this->varName.' = ';
-        $file .= $this->varExport($row, $indention);
+        $file .= $this->varExport($templateInfo, $indention);
         $file .= ';';
         return $file;
     }
@@ -88,7 +104,11 @@ class tx_templavoilafiles_provider_tvfmapping extends tx_templavoilafiles_provid
                     $line .= "'".str_replace("'", "\\'", $value)."'";
                     break;
                 case is_array($value):
-                    $line .= $this->varExport($value, $indention, $level + 1);
+                    if (count($value)) {
+                        $line .= $this->varExport($value, $indention, $level + 1);
+                    } else {
+                        $line .= 'array()';
+                    }
                     break;
                 default:
                     $this->_die('Unsupported type: '.gettype($value));
@@ -100,4 +120,70 @@ class tx_templavoilafiles_provider_tvfmapping extends tx_templavoilafiles_provid
         $res .= "\n".str_repeat($indention, $level).')';
         return $res;
     }
+
+	/* (non-PHPdoc)
+     * @see tx_templavoilafiles_provider_abstract::doOverwrite()
+     */
+    protected function doOverwrite($path, $row)
+    {
+        $templateInfo = $this->readTemplateInfo($path);
+        $exportTime = $templateInfo['record']['tstamp'];
+        $recordTime = (int) $row['tstamp'];
+        if ($recordTime > $exportTime) {
+            return true;
+        } elseif ($recordTime < $exportTime) {
+            $this->updateRecord($row['uid'], $templateInfo);
+            return false;
+        } else {
+            $dbProperties = array();
+            $fileProperties = array();
+            foreach ($templateInfo['record'] as $key => $value) {
+                if ($row[$key] != $value) {
+                    $fileProperties[$key] = $value;
+                    $dbProperties[$key] = $row[$key];
+                }
+            }
+            $mapping = serialize($templateInfo['mapping']) != $row['templatemapping'];
+            if (count($dbProperties) || $mapping) {
+                $this->_echo('Detected conflict:');
+                if (count($dbProperties)) {
+                    $this->_echo('=> Conflicting properties:');
+                    $this->_echo('File properties:');
+                    var_dump($fileProperties);
+                    $this->_echo('Database properties:');
+                    var_dump($dbProperties);
+                }
+                if ($mapping) {
+                    $this->_echo('=> Conflicting mapping');
+                }
+                // Todo: Introduce interactive mode and allow
+                // to fix the conflict from CLI
+                $this->_die('Aborting');
+            }
+            return false;
+        }
+    }
+
+    protected function updateRecord($uid, $templateInfo)
+    {
+        $record = $templateInfo['record'];
+        $record['templatemapping'] = serialize($templateInfo['mapping']);
+        $res = $this->db->exec_UPDATEquery('tx_templavoila_tmplobj', 'uid='.$uid, $record);
+        if (!$res) {
+            $this->_die('Could not update record');
+        }
+    }
+
+    protected function readTemplateInfo($path)
+    {
+        @include $path;
+        if (!isset(${$this->varName})) {
+            $this->_die(
+            	'Could not read file '.$path.' - either it doesn\'t '.
+                'exist or doesn\'t contain the correct variable'
+            );
+        }
+        return ${$this->varName};
+    }
+
 }

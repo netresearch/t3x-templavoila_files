@@ -39,13 +39,6 @@ abstract class tx_templavoilafiles_provider_abstract extends tx_t3build_provider
     protected $includeDeletedRecords = false;
 
     /**
-     * If existing files should be overwritten
-     * @arg
-     * @var boolean
-     */
-    protected $overwrite = false;
-
-    /**
      * Renaming mode: 'camelCase', 'CamelCase' or 'underscore'
      * @arg
      * @var string
@@ -71,7 +64,7 @@ abstract class tx_templavoilafiles_provider_abstract extends tx_t3build_provider
     protected $extension = 'xml';
 
     protected $rootlines = array();
-    
+
     public function init($args)
     {
         if (!t3lib_extMgm::isLoaded('templavoila')) {
@@ -88,7 +81,7 @@ abstract class tx_templavoilafiles_provider_abstract extends tx_t3build_provider
         if ($this->dryRun) {
             $this->debug = true;
         }
-        
+
         $this->extPath = PATH_typo3conf.'ext/'.$this->extKey.'/';
         $this->extRelPath = 'typo3conf/ext/'.$this->extKey.'/';
     }
@@ -122,7 +115,7 @@ abstract class tx_templavoilafiles_provider_abstract extends tx_t3build_provider
         }
         return $this->rootlines[$pid];
     }
-    
+
     protected function export($rows, $source)
     {
         if (!file_exists($this->extPath)) {
@@ -150,8 +143,8 @@ abstract class tx_templavoilafiles_provider_abstract extends tx_t3build_provider
             }
 
             $this->_debug('Writing record '.$row['uid'].' to '.$path);
-            
-            if (!$this->dryRun && (!file_exists($path) || $this->overwrite)) {
+
+            if (!$this->dryRun && (!file_exists($path) || $this->doOverwrite($path, $row))) {
                 $content = $isCallback ? call_user_func($source, $row) : $row[$source];
                 file_put_contents($path, $content);
                 $map[$row['uid']] = $file;
@@ -160,4 +153,12 @@ abstract class tx_templavoilafiles_provider_abstract extends tx_t3build_provider
 
         return $map;
     }
+
+    /**
+     * Whether to override the file with $path for $row
+     *
+     * @param string $path
+     * @param array $row
+     */
+    abstract protected function doOverwrite($path, $row);
 }

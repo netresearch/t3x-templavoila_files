@@ -20,6 +20,13 @@ class tx_templavoilafiles_provider_tvfds extends tx_templavoilafiles_provider_ab
     protected $update = true;
 
     /**
+     * If existing files should be overwritten
+     * @arg
+     * @var boolean
+     */
+    protected $overwrite = false;
+
+    /**
      * If the datastructure records should be deleted after export
      * @arg
      * @var boolean
@@ -35,13 +42,13 @@ class tx_templavoilafiles_provider_tvfds extends tx_templavoilafiles_provider_ab
     public function tvfdsAction()
     {
         $rows = $this->getRows('tx_templavoila_datastructure');
-        
+
         if (!count($rows)) {
             $this->_die('No records found for pid '.$this->pid);
         }
-        
+
         $map = $this->export($rows, 'dataprot');
-        
+
         foreach ($map as $uid => $file) {
             if ($this->update) {
                 foreach ($this->updateColumns as $table => $columns) {
@@ -75,5 +82,13 @@ class tx_templavoilafiles_provider_tvfds extends tx_templavoilafiles_provider_ab
         }
 
         $this->writeExtConf('templavoila', array('staticDS.' => $conf));
+    }
+
+	/* (non-PHPdoc)
+     * @see tx_templavoilafiles_provider_abstract::doOverwrite()
+     */
+    protected function doOverwrite($path, $row)
+    {
+        return $this->overwrite;
     }
 }
