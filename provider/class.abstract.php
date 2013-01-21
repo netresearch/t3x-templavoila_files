@@ -46,13 +46,6 @@ abstract class tx_templavoilafiles_provider_abstract extends tx_t3build_provider
     protected $renameMode = 'camelCase';
 
     /**
-     * If files should be really touched
-     * @arg
-     * @var boolean
-     */
-    protected $dryRun = false;
-
-    /**
      * @var t3lib_DB
      */
     protected $db;
@@ -64,6 +57,8 @@ abstract class tx_templavoilafiles_provider_abstract extends tx_t3build_provider
     protected $extension = 'xml';
 
     protected $rootlines = array();
+
+    protected $recordFileMap = array();
 
     public function init($args)
     {
@@ -116,13 +111,12 @@ abstract class tx_templavoilafiles_provider_abstract extends tx_t3build_provider
         return $this->rootlines[$pid];
     }
 
-    protected function export($rows, $source)
+    protected function recordsToFiles($rows, $source)
     {
         if (!file_exists($this->extPath)) {
             t3lib_div::mkdir($this->extPath);
         }
 
-        $map = array();
         $isCallback = is_callable($source);
 
         foreach ($rows as $row) {
@@ -136,7 +130,7 @@ abstract class tx_templavoilafiles_provider_abstract extends tx_t3build_provider
                 $this->renameMode
             );
             $path = $this->extPath.$file;
-            if (!$this->dryRun && !file_exists(dirname($path))) {
+            if (!file_exists(dirname($path))) {
                 if (t3lib_div::mkdir_deep($this->extPath, dirname($file))) {
                     $this->_die('Could not make directory '.$path);
                 }
@@ -144,14 +138,15 @@ abstract class tx_templavoilafiles_provider_abstract extends tx_t3build_provider
 
             $this->_debug('Writing record '.$row['uid'].' to '.$path);
 
-            if (!$this->dryRun && (!file_exists($path) || $this->doOverwrite($path, $row))) {
+            $exists = file_exists($path);
+            if (!$exists || $this->doOverwrite($path, $row)) {
                 $content = $isCallback ? call_user_func($source, $row) : $row[$source];
                 file_put_contents($path, $content);
-                $map[$row['uid']] = $file;
+                $this->_echo(($exists ? 'Updated' : 'Created').' '.$path.' for record '.$row['uid']);
             }
-        }
 
-        return $map;
+            $this->recordFileMap[$row['uid']] = realpath($path);
+        }
     }
 
     /**

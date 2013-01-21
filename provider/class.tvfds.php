@@ -47,7 +47,7 @@ class tx_templavoilafiles_provider_tvfds extends tx_templavoilafiles_provider_ab
             $this->_die('No records found for pid '.$this->pid);
         }
 
-        $map = $this->export($rows, 'dataprot');
+        $map = $this->recordsToFiles($rows, 'dataprot');
 
         foreach ($map as $uid => $file) {
             if ($this->update) {
