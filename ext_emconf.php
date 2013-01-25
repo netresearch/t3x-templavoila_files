@@ -22,6 +22,8 @@ $EM_CONF[$_EXTKEY] = array(
 	'version' => '0.0.0',
 	'constraints' => array(
 		'depends' => array(
+            't3build' => '',
+			'templavoila' => '1.5.0-0.0.0',
 		),
 		'conflicts' => array(
 		),

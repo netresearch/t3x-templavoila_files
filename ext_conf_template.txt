@@ -1,5 +1,0 @@
- 	#cat=Mapping;type=string;label=LLL:EXT:templavoila_files/locallang.xml:mapping.extKey
-mapping.extKey = template
-
- 	#cat=Mapping;type=string;label=LLL:EXT:templavoila_files/locallang.xml:mapping.pathMask
-mapping.pathMask = ds/${scope}/${title}.php
