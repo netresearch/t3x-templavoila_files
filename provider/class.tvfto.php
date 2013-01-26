@@ -102,6 +102,7 @@ class tx_templavoilafiles_provider_tvfto extends tx_templavoilafiles_provider_ab
         $scope = $row['scope'] === '1' ? 'page' : 'fce';
         $checksum = md5($row['templatemapping']);
         $user = (array) $this->db->exec_SELECTgetSingleRow('username', 'be_users', 'uid='.$row['cruser_id']);
+        $rootline = $this->getRootline($row['pid']);
 
         $removeColumns = array('uid', 'pid', 'templatemapping', 't3_origuid', 'scope', 'cruser_id');
         foreach ($row as $column => $value) {
@@ -119,7 +120,7 @@ class tx_templavoilafiles_provider_tvfto extends tx_templavoilafiles_provider_ab
                 'scope' => $scope,
                 'host' => $_SERVER['COMPUTERNAME'],
         		'user' => $_SERVER['USERNAME'],
-                'path' => $this->getRootline($row['pid'])
+                'path' => $rootline
             ),
             'record' => $row,
             'mapping' => $mapping
@@ -296,7 +297,7 @@ class tx_templavoilafiles_provider_tvfto extends tx_templavoilafiles_provider_ab
                 }
             }
             if (!$found) {
-                $this->_echo('No files found for '.$scope.' scope in '.$pathinfo['dirname']);
+                $this->_debug('No new files found for '.$scope.' scope in '.$pathinfo['dirname']);
             }
         }
     }
@@ -327,8 +328,6 @@ class tx_templavoilafiles_provider_tvfto extends tx_templavoilafiles_provider_ab
      */
     protected function insertRecord($path)
     {
-        /* @var $tce t3lib_TCEmain */
-        $tce = t3lib_div::makeInstance('t3lib_TCEmain');
         $templateInfo = $this->readTemplateInfo($path);
 
         // Find the pid of the folder inside $pid if any
@@ -342,33 +341,34 @@ class tx_templavoilafiles_provider_tvfto extends tx_templavoilafiles_provider_ab
                 continue;
             }
             $data = array(
-            	'pages' => array(
-                    'NEW' => array(
-                        'pid' => $pid,
-                        'title' => $title
-                    )
-                )
+                'pid' => $pid,
+                'title' => $title,
+                'crdate' => time(),
+                'tstamp' => time(),
+                'cruser_id' => $GLOBALS['BE_USER']->user['uid'],
+                'doktype' => 254
             );
-            $tce->start($data, array());
-            $tce->process_datamap();
-            $pid = $tce->substNEWwithIDs['NEW'];
-            $this->_echo("Created missing page '$title' ($pid)");
+            if (!$this->db->exec_INSERTquery('pages', $data)) {
+                $this->_die('Could not create page '.$title.' on pid '.$pid);
+            }
+            $pid = $this->db->sql_insert_id();
+            $this->_echo("Created missing folder '$title' ($pid)");
         }
 
         // Insert the new record
         $row = $templateInfo['record'];
-        unset($row['tstamp'], $row['crdate']);
         $row['pid'] = $pid;
         $row['templatemapping'] = serialize($templateInfo['mapping']);
-        $data = array(
-            'tx_templavoila_tmplobj' => array(
-                'NEW' => $row
-            )
-        );
+        $row['cruser_id'] = $GLOBALS['BE_USER']->user['uid'];
 
-        $this->recordFileMap[$tce->substNEWwithIDs['NEW']] = $path;
+        if (!$this->db->exec_INSERTquery('tx_templavoila_tmplobj', $row)) {
+            $this->_die('Could not create record '.$row['title'].' on pid '.$pid);
+        }
 
-        return $tce->substNEWwithIDs['NEW'];
+        $uid = $this->db->sql_insert_id();
+        $this->recordFileMap[$uid] = $path;
+
+        return $uid;
     }
 
     /**
