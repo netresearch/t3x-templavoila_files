@@ -210,30 +210,43 @@ class tx_templavoilafiles_provider_tvfmapping extends tx_templavoilafiles_provid
         $exportTime = $templateInfo['record']['tstamp'];
         $recordTime = (int) $row['tstamp'];
 
-        if ($this->exportOnly || $recordTime > $exportTime) {
-            // Record is newer - update the file
-            return true;
-        } elseif ($this->importOnly || $recordTime < $exportTime) {
-            // File is newer - update the record
-            $this->updateRecord($row['uid'], $templateInfo);
-            $this->_echo('Updated record '.$row['uid'].' from '.$path);
-            return false;
-        } else {
+        $forceExport = $this->exportOnly;
+        $forceImport = $this->importOnly;
+
+        if ($recordTime == $exportTime) {
             // We have a conflict:
             $this->_echo('Detected conflict on '.$path);
             if (count($dbProperties)) {
                 $this->_echo('=> Conflicting properties:');
                 $this->_echo('File properties:');
                 var_dump($fileProperties);
-                $this->_echo('Database properties:');
+                $this->_echo('Record properties:');
                 var_dump($dbProperties);
             }
             if ($mapping) {
                 $this->_echo('=> Conflicting mapping');
             }
-            // Todo: Introduce interactive mode and allow
-            // to fix the conflict from CLI
-            $this->_die('Aborting');
+            // Decide what to do:
+            $res = $this->_input(
+            	'Import file (f), export record (r) or skip (s)?',
+                array('f', 'r', 's'),
+                's' // Skip by default
+            );
+            if ($res == 's') {
+                $this->_echo('Skipping');
+                return false;
+            }
+            $forceImport = $res == 'f';
+            $forceExport = $res == 'r';
+        }
+
+        if ($forceExport || $recordTime > $exportTime) {
+            // Record is newer - update the file
+            return true;
+        } elseif ($forceImport || $recordTime < $exportTime) {
+            // File is newer - update the record
+            $this->updateRecord($row['uid'], $templateInfo);
+            $this->_echo('Updated record '.$row['uid'].' from '.$path);
             return false;
         }
     }
