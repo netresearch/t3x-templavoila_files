@@ -32,7 +32,7 @@ abstract class tx_templavoilafiles_provider_abstract extends tx_t3build_provider
     protected $path = '###TYPE###/${path}/${scope}/${title}.###EXTENSION###';
 
     /**
-     * Whether to include deleted ds
+     * Whether to include deleted records
      * @arg
      * @var boolean
      */
