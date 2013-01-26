@@ -136,8 +136,6 @@ abstract class tx_templavoilafiles_provider_abstract extends tx_t3build_provider
                 }
             }
 
-            $this->_debug('Writing record '.$row['uid'].' to '.$path);
-
             $exists = file_exists($path);
             if (!$exists || $this->doOverwrite($path, $row)) {
                 $content = $isCallback ? call_user_func($source, $row) : $row[$source];
