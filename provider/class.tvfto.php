@@ -8,7 +8,7 @@ require_once t3lib_extMgm::extPath('templavoila').'classes/class.tx_templavoila_
  * @package t3build
  * @author Christian Opitz <co@netzelf.de>
  */
-class tx_templavoilafiles_provider_tvfmapping extends tx_templavoilafiles_provider_abstract
+class tx_templavoilafiles_provider_tvfto extends tx_templavoilafiles_provider_abstract
 {
     protected $extension = 'php';
 
