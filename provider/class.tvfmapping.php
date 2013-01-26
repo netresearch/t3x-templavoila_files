@@ -31,6 +31,20 @@ class tx_templavoilafiles_provider_tvfmapping extends tx_templavoilafiles_provid
     protected $varName = 'templateInfo';
 
     /**
+     * Import files to database only
+     * @arg
+     * @var boolean
+     */
+    protected $importOnly = false;
+
+    /**
+     * Export records to files only
+     * @arg
+     * @var boolean
+     */
+    protected $exportOnly = false;
+
+    /**
      * Record to file syncronization - see inline comments
      * to find out how it works
      */
@@ -42,9 +56,18 @@ class tx_templavoilafiles_provider_tvfmapping extends tx_templavoilafiles_provid
         // Scope is being detected
         /* @var $dsRepo tx_templavoila_datastructureRepository */
         $dsRepo = t3lib_div::makeInstance('tx_templavoila_datastructureRepository');
-        foreach ($rows as $row) {
-            $ds = $dsRepo->getDatastructureByUidOrFilename($row['datastructure']);
-            $row['scope'] = (string) $ds->getScope();
+        foreach ($rows as $i => $row) {
+            try {
+                $ds = $dsRepo->getDatastructureByUidOrFilename($row['datastructure']);
+                $rows[$i]['scope'] = (string) $ds->getScope();
+            } catch (Exception $e) {
+                $this->_echo(
+                	'Warning: Could not find datastructure - skipping record '.$row['uid']."\n".
+                    '('.(is_numeric($row['datastructure']) ? 'Record' : 'File').
+                    ' '.$row['datastructure'].' missing)'
+                );
+                unset($rows[$i]);
+            }
         }
 
         // Write records to files - the file contents are created in renderMapping
@@ -66,10 +89,15 @@ class tx_templavoilafiles_provider_tvfmapping extends tx_templavoilafiles_provid
      * Render the contents of the file from the row
      *
      * @param array $row
-     * @return string
+     * @return string|boolean
      */
     protected function renderMapping($row)
     {
+        if ($this->importOnly) {
+            // Don't write to the file
+            return false;
+        }
+
         $mapping = unserialize($row['templatemapping']);
         $scope = $row['scope'] === '1' ? 'page' : 'fce';
         $checksum = md5($row['templatemapping']);
@@ -182,10 +210,10 @@ class tx_templavoilafiles_provider_tvfmapping extends tx_templavoilafiles_provid
         $exportTime = $templateInfo['record']['tstamp'];
         $recordTime = (int) $row['tstamp'];
 
-        if ($recordTime > $exportTime) {
+        if ($this->exportOnly || $recordTime > $exportTime) {
             // Record is newer - update the file
             return true;
-        } elseif ($recordTime < $exportTime) {
+        } elseif ($this->importOnly || $recordTime < $exportTime) {
             // File is newer - update the record
             $this->updateRecord($row['uid'], $templateInfo);
             $this->_echo('Updated record '.$row['uid'].' from '.$path);
@@ -218,6 +246,10 @@ class tx_templavoilafiles_provider_tvfmapping extends tx_templavoilafiles_provid
      */
     protected function filesToRecords($rows)
     {
+        if ($this->exportOnly) {
+            return;
+        }
+
         foreach (array('page', 'fce', '') as $scope) {
             // Create a path for a fake file to search there
             // for other files
