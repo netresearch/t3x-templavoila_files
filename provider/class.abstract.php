@@ -141,8 +141,10 @@ abstract class tx_templavoilafiles_provider_abstract extends tx_t3build_provider
             $exists = file_exists($path);
             if (!$exists || $this->doOverwrite($path, $row)) {
                 $content = $isCallback ? call_user_func($source, $row) : $row[$source];
-                file_put_contents($path, $content);
-                $this->_echo(($exists ? 'Updated' : 'Created').' '.$path.' for record '.$row['uid']);
+                if ($content !== false) {
+                    file_put_contents($path, $content);
+                    $this->_echo(($exists ? 'Updated' : 'Created').' '.$path.' for record '.$row['uid']);
+                }
             }
 
             $this->recordFileMap[$row['uid']] = realpath($path);
